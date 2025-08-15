@@ -100,7 +100,7 @@ def _consume_to_store(command_opts: ConsumeCommandOptions) -> None:
     if command_opts.icechunk:
         repo, existing_times = storage.get_icechunk_repo(path=command_opts.zarr_path)
 
-        def _batcher(it: Iterable[T], batch_size: int = 1000) -> Generator[tuple[T, ...]]:
+        def _batcher(it: Iterable[T], batch_size: int = 1) -> Generator[tuple[T, ...]]:
             """Yield successive n-sized chunks from an iterable (excepting the last batch)."""
             while True:
                 batch = tuple(itertools.islice(it, batch_size))
@@ -115,7 +115,7 @@ def _consume_to_store(command_opts: ConsumeCommandOptions) -> None:
             raw_filegroups = Parallel(n_jobs=command_opts.num_workers, prefer="threads")(
                 delayed(load_raw)(
                     product=p,
-                    folder=f"{command_opts.workdir}/raw",
+                    folder=f"/scratch/{command_opts.workdir.split('/')[-1]}_{np.random.randint(1e6)}",
                     filter_regex=command_opts.satellite_metadata.file_filter_regex,
                     existing_times=existing_times,
                 )
@@ -203,9 +203,11 @@ def _consume_to_store(command_opts: ConsumeCommandOptions) -> None:
                             {
                                 "start_time": {
                                     "dtype": "datetime64[ns]",
+                                    "units": "nanoseconds since 1970-01-01",
                                 },
                                 "end_time": {
                                     "dtype": "datetime64[ns]",
+                                    "units": "nanoseconds since 1970-01-01",
                                 },
                                 "platform_name": {
                                     "dtype": "U12",
@@ -215,7 +217,7 @@ def _consume_to_store(command_opts: ConsumeCommandOptions) -> None:
                                 },
                             },
                         )
-                        to_icechunk(obj=da, session=session, mode="w-", encoding=encoding)
+                        to_icechunk(obj=da.chunk({"time": 1, "x_geostationary": -1, "y_geostationary": -1}), session=session, mode="w-", encoding=encoding)
                     _ = session.commit(message="initial commit")
                 # Otherwise, append the data to the existing store
                 else:
@@ -232,7 +234,7 @@ def _consume_to_store(command_opts: ConsumeCommandOptions) -> None:
                     # TODO: Remove warnings catch when Zarr makes up its mind about codecs
                     with warnings.catch_warnings(action="ignore"):
                         to_icechunk(
-                            obj=da,
+                            obj=da.chunk({"time": 1, "x_geostationary": -1, "y_geostationary": -1}),
                             session=session,
                             append_dim="time",
                             mode="a",
