@@ -226,10 +226,11 @@ def download_raw_gk2a(
             .to_pydatetime()
             .replace(tzinfo=dt.UTC)
         )
+        print(f"Checking if product exists in store: {rounded_time}")
         if rounded_time in existing_times:
+            print(f"Skipping product that exists in store: {rounded_time}")
             log.debug(
                 "Skipping product that exists in store",
-                time=product.sensing_end.strftime("%Y-%m-%dT%H:%M"),
                 rounded_time=rounded_time.strftime("%Y-%m-%dT%H:%M"),
             )
             return []
@@ -267,8 +268,9 @@ def download_raw_gk2a(
                 )
 
         if i == retries:
-            raise DownloadError(
+            log.error(
                 f"Failed to download output '{raw_file}' after {retries} attempts.",
             )
+            return []
 
     return downloaded_files
